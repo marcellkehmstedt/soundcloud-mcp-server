@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 Marcell Kehmstedt
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { randomBytes } from "crypto";
 import type { PKCEState, AuthCodeSession } from "../types.js";
 

@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 Marcell Kehmstedt
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 export interface Track {
   id: number;
   title: string;
