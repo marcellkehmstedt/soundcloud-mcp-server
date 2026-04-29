@@ -60,7 +60,9 @@ function unwrapCollection<T>(body: unknown): T {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.ok) {
+    dbg("SC", `reading body (content-length: ${res.headers.get("content-length") ?? "unknown"})`);
     const body = await res.json();
+    dbg("SC", "body parsed");
     return unwrapCollection<T>(body);
   }
 
@@ -137,9 +139,12 @@ export async function getStreamUrls(
   return handleResponse<StreamUrls>(res);
 }
 
-export async function getMyPlaylists(token: string): Promise<Playlist[]> {
+export async function getMyPlaylists(token: string): Promise<Omit<Playlist, "tracks">[]> {
   const res = await scFetch("/me/playlists", token);
-  return handleResponse<Playlist[]>(res);
+  const playlists = await handleResponse<Playlist[]>(res);
+  // Strip full track objects from the list view — callers use get_playlist for track details.
+  // Playlist responses can include hundreds of embedded track objects, making the payload huge.
+  return playlists.map(({ tracks: _tracks, ...rest }) => rest);
 }
 
 export async function getPlaylist(
