@@ -4,8 +4,10 @@ import type {
   StreamUrls,
   SoundCloudApiError,
 } from "../types.js";
+import { dbg } from "../debug.js";
 
 const SC_API = "https://api.soundcloud.com";
+const SC_TIMEOUT_MS = 15_000;
 
 class SoundCloudError extends Error {
   constructor(public readonly payload: SoundCloudApiError) {
@@ -19,15 +21,32 @@ async function scFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const url = path.startsWith("http") ? path : `${SC_API}${path}`;
-  return fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json; charset=utf-8",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
+  const method = (options.method ?? "GET").toUpperCase();
+
+  dbg("SC", `→ ${method} ${url} (token: ${token.length} chars)`);
+  const t0 = Date.now();
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      signal: AbortSignal.timeout(SC_TIMEOUT_MS),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json; charset=utf-8",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    const ms = Date.now() - t0;
+    dbg("SC", `✗ ${method} ${url} — ${ms}ms —`, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+
+  const ms = Date.now() - t0;
+  dbg("SC", `← ${res.status} ${method} ${url} — ${ms}ms`);
+  return res;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {

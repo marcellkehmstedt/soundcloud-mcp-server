@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createAuthRouter } from "./auth/mcpAuth.js";
 import { registerTrackTools } from "./tools/tracks.js";
 import { registerPlaylistTools } from "./tools/playlists.js";
+import { dbg, DEBUG } from "./debug.js";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const PUBLIC_URL = (process.env.PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -83,10 +84,18 @@ app.all("/mcp", express.json(), mcpAuthMiddleware, async (req, res) => {
   const token = req.soundcloudToken!;
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
+  // Log every JSON-RPC method call when debug is enabled
+  if (DEBUG && req.method === "POST" && req.body?.method) {
+    const params = req.body.params ? JSON.stringify(req.body.params).slice(0, 300) : "{}";
+    dbg("MCP", `→ ${req.body.method} ${params}`);
+  }
+
   // Route to an existing session
   if (sessionId) {
+    dbg("MCP", `session ${sessionId} — ${req.method}`);
     const transport = sessions.get(sessionId);
     if (!transport) {
+      dbg("MCP", `session ${sessionId} not found`);
       res.status(404).json({ error: "Session not found or expired." });
       return;
     }
@@ -104,6 +113,8 @@ app.all("/mcp", express.json(), mcpAuthMiddleware, async (req, res) => {
 
   // Pre-generate the session ID so we can store it before handleRequest
   const newSessionId = randomUUID();
+  dbg("MCP", `new session ${newSessionId}`);
+
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => newSessionId,
   });
@@ -111,6 +122,7 @@ app.all("/mcp", express.json(), mcpAuthMiddleware, async (req, res) => {
   sessions.set(newSessionId, transport);
 
   transport.onclose = () => {
+    dbg("MCP", `session ${newSessionId} closed`);
     sessions.delete(newSessionId);
   };
 
@@ -124,4 +136,5 @@ app.listen(PORT, () => {
   console.log(`Public URL: ${PUBLIC_URL}`);
   console.log(`MCP endpoint:      ${PUBLIC_URL}/mcp`);
   console.log(`OAuth discovery:   ${PUBLIC_URL}/.well-known/oauth-authorization-server`);
+  if (DEBUG) console.log(`Debug logging:     enabled (MCP_DEBUG=true)`);
 });
