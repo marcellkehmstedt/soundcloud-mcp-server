@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 Marcell Kehmstedt
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { randomUUID } from "crypto";
 import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

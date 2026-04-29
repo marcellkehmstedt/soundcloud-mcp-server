@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 Marcell Kehmstedt
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {

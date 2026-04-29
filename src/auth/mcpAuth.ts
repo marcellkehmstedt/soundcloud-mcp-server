@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 Marcell Kehmstedt
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";

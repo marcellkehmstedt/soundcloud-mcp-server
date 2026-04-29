@@ -2,6 +2,7 @@
   "name": "soundcloud-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for SoundCloud API integration",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
