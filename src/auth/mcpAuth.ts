@@ -49,17 +49,28 @@ export function createAuthRouter(publicUrl: string): express.Router {
 
   router.use(express.urlencoded({ extended: false }));
 
-  // OAuth 2.0 Authorization Server Metadata (RFC 8414)
+  // OAuth 2.0 Authorization Server Metadata (RFC 8414).
+  // Served at both the root and under /mcp/ because Claude constructs the
+  // discovery URL by appending /.well-known/oauth-authorization-server to
+  // whatever MCP server URL the user enters. If the user enters
+  // https://host/mcp, Claude looks at https://host/mcp/.well-known/…
+  const discoveryDoc = {
+    issuer: publicUrl,
+    authorization_endpoint: `${publicUrl}/oauth/authorize`,
+    token_endpoint: `${publicUrl}/oauth/token`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    code_challenge_methods_supported: ["S256"],
+    token_endpoint_auth_methods_supported: ["none"],
+  };
+
   router.get("/.well-known/oauth-authorization-server", (_req, res) => {
-    res.json({
-      issuer: publicUrl,
-      authorization_endpoint: `${publicUrl}/oauth/authorize`,
-      token_endpoint: `${publicUrl}/oauth/token`,
-      response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code", "refresh_token"],
-      code_challenge_methods_supported: ["S256"],
-      token_endpoint_auth_methods_supported: ["none"],
-    });
+    res.json(discoveryDoc);
+  });
+
+  // Also serve when Claude uses /mcp as the base URL
+  router.get("/mcp/.well-known/oauth-authorization-server", (_req, res) => {
+    res.json(discoveryDoc);
   });
 
   // GET /oauth/authorize — render login form
