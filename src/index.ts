@@ -37,6 +37,57 @@ app.get("/health", (_req, res) => {
   });
 });
 
+// Diagnostic endpoint — tests the SoundCloud token that the MCP server would use.
+// Requires the same Bearer token Claude sends to /mcp.
+// Useful for verifying SoundCloud API connectivity without going through Claude Web.
+app.get("/diagnostic", async (req, res) => {
+  const header = req.headers.authorization ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) {
+    res.status(401).json({ error: "Pass your SoundCloud access token as 'Authorization: Bearer <token>'" });
+    return;
+  }
+
+  const results: Record<string, unknown> = { token_length: token.length };
+  const t0 = Date.now();
+
+  try {
+    const r = await fetch("https://api.soundcloud.com/me", {
+      signal: AbortSignal.timeout(10_000),
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    results["GET /me"] = { status: r.status, ok: r.ok };
+    if (r.ok) results["me"] = await r.json();
+    else results["me_error"] = await r.text().catch(() => "");
+  } catch (e) {
+    results["GET /me"] = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  try {
+    const r = await fetch("https://api.soundcloud.com/me/playlists", {
+      signal: AbortSignal.timeout(10_000),
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    results["GET /me/playlists"] = { status: r.status, ok: r.ok };
+    if (r.ok) {
+      const body = await r.json() as unknown;
+      // SoundCloud may return { collection: [...] } or a plain array
+      results["playlists_preview"] = Array.isArray(body)
+        ? `array of ${(body as unknown[]).length}`
+        : (body as Record<string, unknown>)?.collection
+          ? `collection of ${((body as Record<string, unknown>).collection as unknown[]).length}`
+          : body;
+    } else {
+      results["playlists_error"] = await r.text().catch(() => "");
+    }
+  } catch (e) {
+    results["GET /me/playlists"] = { error: e instanceof Error ? e.message : String(e) };
+  }
+
+  results["elapsed_ms"] = Date.now() - t0;
+  res.json(results);
+});
+
 // OAuth endpoints — router applies its own body parsing
 app.use("/", createAuthRouter(PUBLIC_URL));
 

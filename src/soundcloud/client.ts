@@ -49,8 +49,20 @@ async function scFetch(
   return res;
 }
 
+// SoundCloud list endpoints return { collection: T[], next_href: string|null }
+// rather than a plain array. Unwrap if needed.
+function unwrapCollection<T>(body: unknown): T {
+  if (body && typeof body === "object" && "collection" in body) {
+    return (body as { collection: T }).collection;
+  }
+  return body as T;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
-  if (res.ok) return res.json() as Promise<T>;
+  if (res.ok) {
+    const body = await res.json();
+    return unwrapCollection<T>(body);
+  }
 
   if (res.status === 401) {
     throw new SoundCloudError({
