@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -54,6 +54,7 @@ export function createAuthRouter(publicUrl: string): express.Router {
     issuer: publicUrl,
     authorization_endpoint: `${publicUrl}/oauth/authorize`,
     token_endpoint: `${publicUrl}/oauth/token`,
+    registration_endpoint: `${publicUrl}/register`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
@@ -61,25 +62,46 @@ export function createAuthRouter(publicUrl: string): express.Router {
   };
 
   router.get("/.well-known/oauth-authorization-server", (_req, res) => {
-    res.json(authServerMetadata);
+    res.set("Cache-Control", "no-store").json(authServerMetadata);
   });
 
-  // RFC 9728 — OAuth 2.0 Protected Resource Metadata
-  // Claude Web probes /.well-known/oauth-protected-resource{path} to learn
-  // which authorization server protects a given resource. Without this,
-  // Claude reports "can't reach the MCP server" even when the server is up.
-  // For MCP URL https://host/mcp the path-aware probe is /mcp appended.
+  // RFC 9728 — OAuth 2.0 Protected Resource Metadata.
+  // Claude Web reads this (via the resource_metadata_url from the 401
+  // WWW-Authenticate header) to discover the authorization server URL.
   const protectedResourceMetadata = {
     resource: `${publicUrl}/mcp`,
     authorization_servers: [publicUrl],
+    bearer_methods_supported: ["header"],
+    scopes_supported: [],
   };
 
   router.get("/.well-known/oauth-protected-resource", (_req, res) => {
-    res.json(protectedResourceMetadata);
+    res.set("Cache-Control", "no-store").json(protectedResourceMetadata);
   });
 
   router.get("/.well-known/oauth-protected-resource/mcp", (_req, res) => {
-    res.json(protectedResourceMetadata);
+    res.set("Cache-Control", "no-store").json(protectedResourceMetadata);
+  });
+
+  // RFC 7591 — Dynamic Client Registration.
+  // Claude Web has no pre-registered client_id for this server, so it
+  // registers dynamically. We accept any client and issue a random client_id
+  // (no server-side storage — client_id is not validated on later requests).
+  router.post("/register", express.json(), (req, res) => {
+    const { redirect_uris, client_name } = (req.body ?? {}) as Record<string, unknown>;
+    if (!Array.isArray(redirect_uris) || redirect_uris.length === 0) {
+      res.status(400).json({ error: "invalid_client_metadata", error_description: "redirect_uris required" });
+      return;
+    }
+    res.status(201).json({
+      client_id: randomUUID(),
+      client_id_issued_at: Math.floor(Date.now() / 1000),
+      client_name: typeof client_name === "string" ? client_name : "MCP Client",
+      redirect_uris,
+      grant_types: ["authorization_code"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    });
   });
 
   // GET /oauth/authorize — render login form

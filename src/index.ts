@@ -11,15 +11,17 @@ const PUBLIC_URL = (process.env.PUBLIC_URL ?? `http://localhost:${PORT}`).replac
 
 const app = express();
 
-// CORS — Claude Web is a browser app and makes cross-origin requests
+// CORS — Claude Web is a browser app that makes cross-origin requests.
+// WWW-Authenticate must be exposed so the browser can read it and discover
+// the OAuth metadata URL after receiving a 401 from the /mcp endpoint.
 app.use((_req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Authorization, Content-Type, mcp-session-id"
+    "Authorization, Content-Type, mcp-session-id, MCP-Protocol-Version"
   );
-  res.setHeader("Access-Control-Expose-Headers", "mcp-session-id");
+  res.setHeader("Access-Control-Expose-Headers", "mcp-session-id, WWW-Authenticate");
   next();
 });
 
@@ -48,6 +50,13 @@ function mcpAuthMiddleware(
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) {
+    // WWW-Authenticate with resource_metadata_url is what Claude Web reads to
+    // discover the OAuth authorization server — without this header the browser
+    // doesn't know where to start the OAuth flow.
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer realm="${PUBLIC_URL}", resource_metadata_url="${PUBLIC_URL}/.well-known/oauth-protected-resource/mcp"`
+    );
     res.status(401).json({
       error: "Unauthorized",
       error_description: "Bearer token required.",
