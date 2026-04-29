@@ -49,12 +49,8 @@ export function createAuthRouter(publicUrl: string): express.Router {
 
   router.use(express.urlencoded({ extended: false }));
 
-  // OAuth 2.0 Authorization Server Metadata (RFC 8414).
-  // Served at both the root and under /mcp/ because Claude constructs the
-  // discovery URL by appending /.well-known/oauth-authorization-server to
-  // whatever MCP server URL the user enters. If the user enters
-  // https://host/mcp, Claude looks at https://host/mcp/.well-known/…
-  const discoveryDoc = {
+  // RFC 8414 — OAuth 2.0 Authorization Server Metadata
+  const authServerMetadata = {
     issuer: publicUrl,
     authorization_endpoint: `${publicUrl}/oauth/authorize`,
     token_endpoint: `${publicUrl}/oauth/token`,
@@ -65,12 +61,25 @@ export function createAuthRouter(publicUrl: string): express.Router {
   };
 
   router.get("/.well-known/oauth-authorization-server", (_req, res) => {
-    res.json(discoveryDoc);
+    res.json(authServerMetadata);
   });
 
-  // Also serve when Claude uses /mcp as the base URL
-  router.get("/mcp/.well-known/oauth-authorization-server", (_req, res) => {
-    res.json(discoveryDoc);
+  // RFC 9728 — OAuth 2.0 Protected Resource Metadata
+  // Claude Web probes /.well-known/oauth-protected-resource{path} to learn
+  // which authorization server protects a given resource. Without this,
+  // Claude reports "can't reach the MCP server" even when the server is up.
+  // For MCP URL https://host/mcp the path-aware probe is /mcp appended.
+  const protectedResourceMetadata = {
+    resource: `${publicUrl}/mcp`,
+    authorization_servers: [publicUrl],
+  };
+
+  router.get("/.well-known/oauth-protected-resource", (_req, res) => {
+    res.json(protectedResourceMetadata);
+  });
+
+  router.get("/.well-known/oauth-protected-resource/mcp", (_req, res) => {
+    res.json(protectedResourceMetadata);
   });
 
   // GET /oauth/authorize — render login form
