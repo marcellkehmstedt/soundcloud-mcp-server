@@ -1,0 +1,10 @@
+services:
+  soundcloud-mcp:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PUBLIC_URL=https://your-domain.com
+      - SOUNDCLOUD_REDIRECT_URI=https://your-domain.com/soundcloud/callback
+      - PORT=3000
+    restart: unless-stopped
