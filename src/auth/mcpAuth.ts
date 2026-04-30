@@ -19,13 +19,41 @@ import {
 import type { RefreshTokenPayload } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const LOGIN_HTML = readFileSync(
+const LOGIN_HTML_RAW = readFileSync(
   join(__dirname, "..", "..", "src", "ui", "login.html"),
   "utf8"
 );
 
 const SC_AUTH_URL = "https://soundcloud.com/connect";
 const SC_TOKEN_URL = "https://api.soundcloud.com/oauth2/token";
+
+const DEFAULT_BRAND_COLOR = "#3b82f6";
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+function darkenHex(hex: string, factor: number): string {
+  const num = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, Math.round(((num >> 16) & 0xff) * factor)));
+  const g = Math.max(0, Math.min(255, Math.round(((num >> 8) & 0xff) * factor)));
+  const b = Math.max(0, Math.min(255, Math.round((num & 0xff) * factor)));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+function resolveBrandColor(): string {
+  const raw = process.env.UI_BRAND_COLOR?.trim();
+  if (raw && HEX_COLOR_RE.test(raw)) return raw.toLowerCase();
+  if (raw) {
+    console.warn(
+      `[ui] Ignoring invalid UI_BRAND_COLOR=${JSON.stringify(raw)}; expected #rrggbb. Falling back to default.`
+    );
+  }
+  return DEFAULT_BRAND_COLOR;
+}
+
+const BRAND_COLOR = resolveBrandColor();
+const BRAND_COLOR_HOVER = darkenHex(BRAND_COLOR, 0.85);
+const LOGIN_HTML = LOGIN_HTML_RAW
+  .replace(/\{\{brand_color\}\}/g, BRAND_COLOR)
+  .replace(/\{\{brand_color_hover\}\}/g, BRAND_COLOR_HOVER);
 
 function verifyPKCE(codeVerifier: string, codeChallenge: string): boolean {
   const computed = createHash("sha256")

@@ -15,7 +15,7 @@ An MCP (Model Context Protocol) server that gives Claude access to your SoundClo
 | `delete_playlist` | Delete a playlist permanently |
 | `search_tracks` | Search SoundCloud tracks by keyword and genre |
 | `get_track` | Get details for a specific track |
-| `get_stream_url` | Get a direct MP3 stream URL for a track |
+| `get_stream_url` | Get a direct MP3 stream URL for a track (personal/authorized listening only — see [Usage notes](#usage-notes)) |
 
 ## Prerequisites
 
@@ -45,6 +45,7 @@ cp .env.example .env
 | `SOUNDCLOUD_REDIRECT_URI` | Yes | Must be `{PUBLIC_URL}/soundcloud/callback` |
 | `PORT` | No | Port to listen on (default: `3000`) |
 | `MCP_DEBUG` | No | Set to `true` to enable verbose debug logging to stderr |
+| `UI_BRAND_COLOR` | No | Accent color of the login UI (hex `#rrggbb`, default `#3b82f6`) |
 
 ### 3. Run
 
@@ -131,6 +132,15 @@ Express server
 ```
 
 **Token flow:** Claude Web completes a PKCE OAuth flow against this server. The server exchanges Claude's auth code for a SoundCloud access token and passes it straight through as the MCP Bearer token. Each MCP session uses the token to call the SoundCloud API on Claude's behalf.
+
+## Usage notes
+
+- `get_stream_url` returns the direct MP3 URL that the SoundCloud API exposes for an authorized user. It is intended for **personal, authorized listening only**. Do not use it to re-host, re-distribute, or publicly broadcast tracks. Each user is responsible for complying with the [SoundCloud API Terms of Use](https://developers.soundcloud.com/docs/api/terms-of-use).
+- Each deployer registers their own SoundCloud developer app and supplies their own `client_id` / `client_secret` via the login form — the server never stores these credentials at rest.
+
+## Disclaimer
+
+This is an **unofficial integration**. This project is not affiliated with, endorsed by, or sponsored by SoundCloud Limited. "SoundCloud" is a trademark of SoundCloud Limited, used here solely in a descriptive sense to refer to the third-party API this software interacts with.
 
 ## License
 
