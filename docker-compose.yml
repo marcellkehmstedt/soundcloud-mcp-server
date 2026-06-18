@@ -1,6 +1,11 @@
 services:
   soundcloud-mcp:
-    build: .
+    # Pull the pre-built image published by the GitHub Actions workflow.
+    # Pin to a version tag (e.g. :v1.0.0) for reproducible deployments.
+    image: ghcr.io/marcellkehmstedt/soundcloud-mcp-server:latest
+    # To build locally from source instead, comment out `image:` above and
+    # uncomment the line below (or run `docker compose build`).
+    # build: .
     ports:
       - "3000:3000"
     environment:
