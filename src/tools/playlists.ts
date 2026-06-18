@@ -59,7 +59,12 @@ export function registerPlaylistTools(server: McpServer, token: string): void {
     {
       title: z.string().describe("Playlist title"),
       is_public: z.boolean().optional().describe("Public playlist (default false)"),
-      track_ids: z.array(z.number().int()).optional().describe("Initial track IDs"),
+      track_ids: z
+        .array(z.string().regex(/^\d+$/, "Track ID must be a numeric string"))
+        .optional()
+        .describe(
+          "Initial track IDs as strings (SoundCloud IDs exceed 2^31, so they must not be sent as JSON numbers)"
+        ),
       description: z.string().optional().describe("Playlist description"),
     },
     async ({ title, is_public, track_ids, description }) => {
@@ -87,9 +92,9 @@ export function registerPlaylistTools(server: McpServer, token: string): void {
       description: z.string().optional().describe("New description"),
       is_public: z.boolean().optional().describe("Change visibility"),
       track_ids: z
-        .array(z.number().int())
+        .array(z.string().regex(/^\d+$/, "Track ID must be a numeric string"))
         .optional()
-        .describe("Replace track list with these IDs"),
+        .describe("Replace track list with these IDs (as strings)"),
     },
     async ({ playlist_id, title, description, is_public, track_ids }) => {
       try {
@@ -111,7 +116,9 @@ export function registerPlaylistTools(server: McpServer, token: string): void {
     "Append tracks to an existing SoundCloud playlist without replacing existing ones.",
     {
       playlist_id: z.number().int().describe("Playlist ID"),
-      track_ids: z.array(z.number().int()).describe("Track IDs to add"),
+      track_ids: z
+        .array(z.string().regex(/^\d+$/, "Track ID must be a numeric string"))
+        .describe("Track IDs to add (as strings)"),
     },
     async ({ playlist_id, track_ids }) => {
       try {
@@ -128,7 +135,10 @@ export function registerPlaylistTools(server: McpServer, token: string): void {
     "Remove a single track from a SoundCloud playlist.",
     {
       playlist_id: z.number().int().describe("Playlist ID"),
-      track_id: z.number().int().describe("Track ID to remove"),
+      track_id: z
+        .string()
+        .regex(/^\d+$/, "Track ID must be a numeric string")
+        .describe("Track ID to remove (as a string)"),
     },
     async ({ playlist_id, track_id }) => {
       try {

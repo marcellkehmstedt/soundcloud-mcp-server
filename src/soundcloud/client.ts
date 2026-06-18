@@ -164,7 +164,7 @@ export async function createPlaylist(
   token: string,
   title: string,
   isPublic = false,
-  trackIds: number[] = [],
+  trackIds: string[] = [],
   description?: string
 ): Promise<Playlist> {
   const body = {
@@ -172,7 +172,9 @@ export async function createPlaylist(
       title,
       sharing: isPublic ? "public" : "private",
       ...(description ? { description } : {}),
-      tracks: trackIds.map((id) => ({ id })),
+      // SoundCloud IDs exceed 2^31; send them as JSON strings so the body
+      // doesn't get mangled into an int32 and rejected with a 422.
+      tracks: trackIds.map((id) => ({ id: String(id) })),
     },
   };
   const res = await scFetch("/playlists", token, {
@@ -189,7 +191,7 @@ export async function updatePlaylist(
     title?: string;
     description?: string;
     is_public?: boolean;
-    track_ids?: number[];
+    track_ids?: string[];
   }
 ): Promise<Playlist> {
   const playlist: Record<string, unknown> = {};
@@ -199,7 +201,8 @@ export async function updatePlaylist(
   if (updates.is_public !== undefined)
     playlist.sharing = updates.is_public ? "public" : "private";
   if (updates.track_ids !== undefined)
-    playlist.tracks = updates.track_ids.map((id) => ({ id }));
+    // IDs as strings — see createPlaylist for why.
+    playlist.tracks = updates.track_ids.map((id) => ({ id: String(id) }));
 
   const res = await scFetch(`/playlists/${playlistId}`, token, {
     method: "PUT",
@@ -211,23 +214,26 @@ export async function updatePlaylist(
 export async function addTracksToPlaylist(
   token: string,
   playlistId: number,
-  newTrackIds: number[]
+  newTrackIds: string[]
 ): Promise<Playlist> {
   const existing = await getPlaylist(token, playlistId);
-  const existingIds = (existing.tracks ?? []).map((t) => t.id);
-  const merged = [...new Set([...existingIds, ...newTrackIds])];
+  // Normalise existing IDs (numbers in the SoundCloud response) to strings so
+  // the dedup against the incoming string IDs works and the re-sent body stays
+  // string-typed.
+  const existingIds = (existing.tracks ?? []).map((t) => String(t.id));
+  const merged = [...new Set([...existingIds, ...newTrackIds.map(String)])];
   return updatePlaylist(token, playlistId, { track_ids: merged });
 }
 
 export async function removeTrackFromPlaylist(
   token: string,
   playlistId: number,
-  trackId: number
+  trackId: string
 ): Promise<Playlist> {
   const existing = await getPlaylist(token, playlistId);
   const filtered = (existing.tracks ?? [])
-    .map((t) => t.id)
-    .filter((id) => id !== trackId);
+    .map((t) => String(t.id))
+    .filter((id) => id !== String(trackId));
   return updatePlaylist(token, playlistId, { track_ids: filtered });
 }
 
